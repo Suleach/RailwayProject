@@ -1,5 +1,6 @@
 from tkinter import *
 from tkinter import ttk, messagebox
+from tkcalendar import DateEntry
 import pyodbc
 
 def conn():
@@ -52,13 +53,9 @@ class Admin():
         Button(self.Canvas, text="Trains", font=self.font, command=self.train).place(x=0, y=60, width=100, height=30)
         Button(self.Canvas, text="Stations", font=self.font, command=self.station).place(x=100, y=60, width=100, height=30)
         Button(self.Canvas, text="Tracks", font=self.font, command=self.track).place(x=200, y=60, width=100, height=30)
-        Button(self.Canvas, text="Orders", font=self.font).place(x=300, y=60, width=100, height=30)
-        Button(self.Canvas, text="Schedule", font=self.font).place(x=400, y=60, width=100, height=30)
-        Button(self.Canvas, text="Seats", font=self.font).place(x=500, y=60, width=100, height=30)
-        Button(self.Canvas, text="Passengers", font=self.font).place(x=600, y=60, width=100, height=30)
-        Button(self.Canvas, text="Delays", font=self.font).place(x=700, y=60, width=100, height=30)
-        Button(self.Canvas, text="Seats", font=self.font).place(x=800, y=60, width=100, height=30)
-        
+        Button(self.Canvas, text="Users", font=self.font, command=self.user).place(x=300, y=60, width=100, height=30)
+        Button(self.Canvas, text="Schedule", font=self.font, command=self.schedule).place(x=400, y=60, width=100, height=30)
+
         self.create_frame()
 
         self.root.mainloop()
@@ -82,6 +79,15 @@ class Admin():
         self.create_frame()
         Tracks(self)
 
+    def user(self):
+        self.frame.destroy()
+        self.create_frame()
+        Users(self)
+
+    def schedule(self):
+        self.frame.destroy()
+        self.create_frame()
+        Schedule(self)
 
 class Trains():
     def __init__(self, admin):
@@ -269,23 +275,24 @@ class Tracks():
         self.station2_ent = ttk.Combobox(admin.frame, values=self.stas, font=admin.font)
         self.station2_ent.place(x=100, y=60, height=30, width=150)
 
-        Button(admin.frame, text='Add', font=admin.font, command=self.tracks_add).place(x=0, y=90, height=30, width=250)
+        Button(admin.frame, text='Add', font=admin.font, command=self.track_add).place(x=0, y=90, height=30, width=250)
+        Button(admin.frame, text='Update', font=admin.font, command=self.track_upd).place(x=0, y=120, height=30, width=250)
+        Button(admin.frame, text='Delete', font=admin.font, command=self.track_del).place(x=0, y=150, height=30, width=250)
 
         cols = ('ID', 'Station_dep', 'Station_arr')
         self.listbox = ttk.Treeview(admin.frame, columns=cols, show='headings')
 
         for col in cols:
             self.listbox.heading(col, text=col)
-            self.listbox.place(x=250, y=0, height=600, width=650)
+        self.listbox.place(x=250, y=0, height=600, width=650)
 
         self.cursor.execute('EXEC select_tracks')
         Stations = cursor.fetchall()
         for i, (id, Station_dep, Station_arr) in enumerate(Stations, start=1):
-            query = 'SELECT * FROM '
             self.listbox.insert("", "end", values=(id, Station_dep, Station_arr))
         self.listbox.bind('<Double-Button-1>', self.TrackSetValues)
 
-    def tracks_add(self):
+    def track_add(self):
         self.station1 = self.station1_ent.get()
         self.station2 = self.station2_ent.get()
         if self.station1 and self.station2:
@@ -297,21 +304,29 @@ class Tracks():
         else:
             messagebox.showinfo("Warning", f"Can not add")
 
-    def tracks_upd(self):
+    def track_upd(self):
         self.id = self.id_ent.get()
         self.station1 = self.station1_ent.get()
         self.station2 = self.station2_ent.get()
-        if self.id:
+        if self.id and self.station1 and self.station2:
             self.station1_id = self.stations[self.stas.index(self.station1)][0]
             self.station2_id = self.stations[self.stas.index(self.station2)][0]
-            query = f"""UPDATE Stations 
-                        SET Station_dep = '{self.name}', Station_arr='{self.city}' 
-                        WHERE Station_ID={self.id}"""
+            query = f"""UPDATE Tracks 
+                        SET Station_ID_dep = {self.station1_id}, Station_ID_arr={self.station2_id} 
+                        WHERE Track_ID={self.id}"""
             self.cursor.execute(query)
-            messagebox.showinfo("Warning", f"You successfully UPDATED {self.name}")
+            messagebox.showinfo("Warning", f"You successfully UPDATED")
         else:
-            messagebox.showinfo("Warning", f"Can not delete")
+            messagebox.showinfo("Warning", f"Can not update")
 
+    def track_del(self):
+        self.id = self.id_ent.get()
+        if self.id:
+            query = f"DELETE FROM Tracks WHERE Track_ID={self.id}"
+            cursor.execute(query)
+            messagebox.showinfo("Warning", f"Successfully deleted")
+        else:
+            messagebox.showinfo("Warning", f"Can not update")
 
     def TrackSetValues(self, event):
         self.id_ent.delete(0, END)
@@ -323,6 +338,207 @@ class Tracks():
         self.station1_ent.insert(0, select['Station_dep'])
         self.station2_ent.insert(0, select['Station_arr'])
 
+class Users():
+    def __init__(self, admin):
+        self.cursor = admin.cursor
+        self.frame = admin.frame
+        Label(admin.frame, text='ID', font=admin.font).place(x=0, y=0, height=30, width=100)
 
+        self.id_ent = Entry(admin.frame, font=admin.font)
+        self.id_ent.place(x=100, y=0, height=30, width=150)
+
+        cols = ('ID', 'Firstname', 'Lastname', 'E-mail', 'IsAdmin')
+        self.listbox = ttk.Treeview(admin.frame, columns=cols, show='headings')
+        Button(admin.frame, text='Orders', font=admin.font, command=self.orders).place(x=0, y=30, height=30, width=250)
+        Button(admin.frame, text='Passengers', font=admin.font, command=self.passengers).place(x=0, y=60, height=30, width=250)
+        Button(admin.frame, text='Discount Card', font=admin.font, command=self.discount_cards).place(x=0, y=90, height=30, width=250)
+
+        for col in cols:
+            self.listbox.heading(col, text=col)
+
+        self.cursor.execute('SELECT * FROM Users')
+        Users = cursor.fetchall()
+        for user in Users:
+            user_id = user[0]
+            user_fn = user[1]
+            user_ln = user[2]
+            user_email = user[3]
+            user_ia = user[6]
+            values = (user_id, user_fn, user_ln, user_email, user_ia)
+            self.listbox.insert('',END, values=values)
+        self.listbox.place(x=250, y=0, height=600, width=650)
+        self.listbox.bind('<Double-Button-1>', self.SetUserValues)
+
+    def SetUserValues(self, event):
+        self.id_ent.delete(0, END)
+        row_id = self.listbox.selection()[0]
+        select = self.listbox.set(row_id)
+        self.user_name = [select['Firstname'], select['Lastname']]
+        self.id_ent.insert(0, select['ID'])
+
+    def orders(self):
+        self.id = self.id_ent.get()
+        if self.id:
+            self.listbox.destroy()
+            query = f"SELECT * FROM Orders WHERE [User_ID]={self.id}"
+            cursor.execute(query)
+            orders = cursor.fetchall()
+            cols = ('ID', 'Creation', 'Paid', 'User')
+            self.listbox = ttk.Treeview(self.frame, columns=cols, show='headings')
+
+            for col in cols:
+                self.listbox.heading(col, text=col)
+            
+            for order in orders:
+                self.id = order[0]
+                self.cration = order[1]
+                self.paid = order[2]
+                self.user = f"{self.user_name[0]} {self.user_name[1]}"
+                values = (self.id, self.cration, self.paid, self.user)
+                self.listbox.insert('',END, values=values)
+
+            self.listbox.place(x=250, y=0, height=600, width=650)
+        else:
+            messagebox.showinfo("Warning", f"ID is empty")
+
+    def discount_cards(self):
+        self.id = self.id_ent.get()
+        if self.id:
+            self.listbox.destroy()
+            query = f"SELECT * FROM Discount_cards WHERE [User_ID]={self.id}"
+            cursor.execute(query)
+            cards = cursor.fetchall()
+            cols = ('ID', 'Number of orders', 'Creation', 'Is Active', 'Discount', 'User')
+            self.listbox = ttk.Treeview(self.frame, columns=cols, show='headings')
+
+            for col in cols:
+                self.listbox.heading(col, text=col)
+
+            for card in cards:
+                self.id = card[0]
+                self.noo = card[1]
+                self.creation = card[2]
+                self.is_active = card[3]
+                self.discount = card[4]
+                self.user = f"{self.user_name[0]} {self.user_name[1]}"
+                values = (self.id, self.noo, self.creation, self.is_active, self.discount, self.user)
+                self.listbox.insert('',END, values=values)
+
+            self.listbox.place(x=250, y=0, height=600, width=650)
+        else:
+            messagebox.showinfo("Warning", f"ID is empty")
+
+    def passengers(self):
+        self.id = self.id_ent.get()
+        if self.id:
+            self.listbox.destroy()
+            query = f"EXEC select_passengers {self.id}"
+            cursor.execute(query)
+            passengers = cursor.fetchall()
+
+            cols = ('ID', 'Firstname', 'Lastname', 'Document', 'Phone', 'Birthday', 'Price', 'Seat', 'Coach', 'Departation', 'Arrival', 'From', 'To')
+            self.listbox = ttk.Treeview(self.frame, columns=cols, show='headings')
+
+            for col in cols:
+                self.listbox.heading(col, text=col)
+
+            for passenger in passengers:
+                id = passenger[0]
+                fn = passenger[1]
+                ln = passenger[2]
+                document = passenger[3]
+                phone = passenger[4]
+                dob = passenger[5]
+                price = passenger[6]
+                seat = passenger[9]
+                coach = passenger[10]
+                dt_dep = passenger[12]
+                dt_arr = passenger[13]
+                station_name_dep = passenger[14]
+                station_name_arr = passenger[15] 
+                values = (id, fn, ln, document, phone, dob, price, seat, coach, dt_dep, dt_arr, station_name_dep, station_name_arr)
+                self.listbox.insert('',END, values=values)
+            self.listbox.place(x=250, y=0, height=600, width=650)
+
+        else:
+            messagebox.showinfo("Warning", f"ID is empty")
+        
+    def losecards(self):
+        query = "EXEC lose_cards"
+        cursor.execute(query)
+
+class Schedule():
+    def __init__(self,admin):
+        self.cursor = admin.cursor
+        self.frame = admin.frame
+        Label(self.frame, text='ID', font=admin.font).place(x=0, y=0, height=30, width=100)
+        Label(self.frame, text='Dep date', font=admin.font).place(x=0, y=30, height=30, width=100)
+        Label(self.frame, text='Dep time', font=admin.font).place(x=0, y=60, height=30, width=100)
+        Label(self.frame, text='Arr date', font=admin.font).place(x=0, y=90, height=30, width=100)
+        Label(self.frame, text='Arr time', font=admin.font).place(x=0, y=120, height=30, width=100)
+        Label(self.frame, text='Price', font=admin.font).place(x=0, y=150, height=30, width=100)
+        Label(self.frame, text='Track', font=admin.font).place(x=0, y=180, height=30, width=100)
+        Label(self.frame, text='Train', font=admin.font).place(x=0, y=210, height=30, width=100)
+
+        self.id_ent = Entry(self.frame, font=admin.font)
+        self.id_ent.place(x=100, y=0, height=30, width=150)
+        
+        
+        self.dep_date = DateEntry(self.frame, font=admin.font)
+        self.dep_date.place(x=100, y=30, height=30, width=150)
+        self.arr_date = DateEntry(self.frame, font=admin.font)
+        self.arr_date.place(x=100, y=60, height=30, width=150)
+
+        self.dep_hour_ent = Spinbox(self.frame, from_=0, to=23, font=admin.font)
+        self.dep_hour_ent.place(x=100, y=90, height=30, width=75)
+        self.dep_min_ent = Spinbox(self.frame, from_=0, to=59, font=admin.font)
+        self.dep_min_ent.place(x=175, y=90, height=30, width=75)
+        self.arr_hour_ent = Spinbox(self.frame, from_=0, to=23, font=admin.font)
+        self.arr_hour_ent.place(x=100, y=120, height=30, width=75)
+        self.arr_min_ent = Spinbox(self.frame, from_=0, to=59, font=admin.font)
+        self.arr_min_ent.place(x=175, y=120, height=30, width=75)
+
+        self.price_ent = Entry(self.frame, font=admin.font)
+        self.price_ent.place(x=100, y=150, height=30, width=150)
+
+        query = f"EXEC select_tracks"
+        cursor.execute(query)
+        tracks = cursor.fetchall()
+        track_list = [[track[0], f'{track[1]}-{track[2]}'] for track in tracks]
+        track_id = [item[0] for item in track_list]
+        track_s = [item[1] for item in track_list]
+        self.track_ent = ttk.Combobox(self.frame, values=track_s, font=admin.font)
+        self.track_ent.place(x=100, y=180, height=30, width=150)
+        
+        query = f"SELECT * FROM Trains"
+        cursor.execute(query)
+        trains = cursor.fetchall()
+        train_id = [train[0] for train in trains]
+        trains_list = [train[1] for train in trains]
+        self.train = ttk.Combobox(self.frame, values=trains_list, font=admin.font)
+        self.train.place(x=100, y=210, height=30, width=150)
+
+        # query = "SELECT * FROM Schedule WHERE DT_dep > GETDATE()"
+        cols = ('ID', 'Dep', 'Arr', 'Price', 'Track', 'Train', 'Is_delay')
+        self.listbox = ttk.Treeview(admin.frame, columns=cols, show='headings')
+        for col in cols:
+            self.listbox.heading(col, text=col)
+        self.listbox.place(x=250, y=0, height=600, width=650)
+
+        query = "SELECT * FROM Schedule"
+        cursor.execute(query)
+        schedules = cursor.fetchall()
+        for schedule in schedules:
+            id_ = schedule[0]
+            dep = schedule[1]
+            arr = schedule[2]
+            price = schedule[3]  
+            track = track_s[track_id.index(schedule[4])]
+            train = trains_list[train_id.index(schedule[5])]
+            is_delay = schedule[6]
+            values = (id_, dep, arr, price, track, train, is_delay)
+            self.listbox.insert('', END, values = values)
+            
+    
 
 Admin(cursor, 1)
